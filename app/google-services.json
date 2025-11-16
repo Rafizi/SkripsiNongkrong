@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "743727922665",
+    "project_id": "skripsi-kafe-jaktim",
+    "storage_bucket": "skripsi-kafe-jaktim.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:743727922665:android:d17a615b0d3ffd0a409f78",
+        "android_client_info": {
+          "package_name": "com.example.skripsinongkrong"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTdRz0_4jAVhDCehKa7BI4E5AKeVGAYXY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
