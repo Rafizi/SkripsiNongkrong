@@ -1,10 +1,10 @@
 package com.example.skripsinongkrong.di // Sesuaikan package Anda
 
-import com.example.skripsinongkrong.data.remote.PlacesApiService
+import com.example.skripsinongkrong.data.remote.PlaceApiService
 import com.example.skripsinongkrong.data.repository.TempatRepository
+import com.google.firebase.Firebase
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
+import com.google.firebase.firestore.firestore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,12 +33,12 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun providePlacesApiService(retrofit: Retrofit): PlacesApiService =
-        retrofit.create(PlacesApiService::class.java)
+    fun providePlacesApiService(retrofit: Retrofit): PlaceApiService =
+        retrofit.create(PlaceApiService::class.java)
 
     @Provides
     @Singleton
-    fun provideTempatRepository(db: FirebaseFirestore, api: PlacesApiService): TempatRepository {
+    fun provideTempatRepository(db: FirebaseFirestore, api: PlaceApiService): TempatRepository {
         return TempatRepository(db, api)
     }
 }
