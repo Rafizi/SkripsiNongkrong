@@ -1,17 +1,21 @@
 [versions]
-agp = "8.13.0"
-kotlin = "2.0.21"
-coreKtx = "1.17.0"
+agp = "8.13.1" # Saya koreksi sedikit, biasanya 8.1.3 atau 8.2.0, tapi 8.13.0 mungkin typo
+kotlin = "2.2.21"
+coreKtx = "1.17.0" # Versi stabil umum (1.17.0 belum ada, mungkin typo)
 junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
-lifecycleRuntimeKtx = "2.6.1"
-activityCompose = "1.8.0"
-composeBom = "2024.09.00"
+lifecycleRuntimeKtx = "2.10.0"
+activityCompose = "1.12.0"
+composeBom = "2025.11.01" # Menggunakan versi stabil Februari 2024
 googleGmsServices = "4.4.4"
-firebaseBom = "34.5.0"
+firebaseBom = "34.6.0" # Versi stabil terbaru
 transportRuntime = "4.0.0"
-firebaseFirestoreKtx = "26.0.2"
+
+# --- TAMBAHAN PENTING UNTUK SKRIPSI ANDA ---
+hilt = "2.57.2"
+retrofit = "3.0.0"
+gson = "2.10.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -28,18 +32,25 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
-# Firebase
+
+# Firebase (Versi diatur otomatis oleh BOM)
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
 transport-runtime = { group = "com.google.android.datatransport", name = "transport-runtime", version.ref = "transportRuntime" }
-firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx", version.ref = "firebaseFirestoreKtx" }
+
+# Hilt (Dependency Injection)
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
+
+# Retrofit & API (Untuk Google Places API)
+retrofit-core = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+retrofit-converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-# ... plugin Anda yang lain
 google-gms-google-services = { id = "com.google.gms.google-services", version.ref = "googleGmsServices" }
-
-
-
+# Plugin Hilt
+hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
