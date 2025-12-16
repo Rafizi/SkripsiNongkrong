@@ -14,12 +14,15 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
 
     // ⚠️ PENTING: Masukkan API Key Google Places Anda di sini
-    private val API_KEY = "MASUKKAN_API_KEY_ANDA_DISINI"
+    private val API_KEY = "AIzaSyD9Sca1UbjLrAKb5oTe3Ps_UfAJ7Gqi5yA"
 
     // ⚠️ PENTING: Masukkan Place ID tempat-tempat di Jakarta Timur yang sudah Anda cari
     private val targetPlaceIds = listOf(
-        "ChIJP1yUHCnPQS0R0iC-Cj8l55g", // Contoh ID 1
-        "ChIJybDUu3vPaS0R2L2i8eqN5wE", // Contoh ID 2
+        "ChIJUR0-gtHtaS4R-2URuESqHT4", // Contoh ID 1
+        "ChIJmQWdy63taS4Rwvp3D16wFrI", // Contoh ID 2
+        "ChIJ691qE_LtaS4RdQLOAf_rNT0", // Contoh ID 2
+        "ChIJbWywWH3taS4R-m07fPfkA58", // Contoh ID 2
+        "ChIJ7-3zQnrtaS4R8WzySJquDcw", // Contoh ID 2
         // ... Tambahkan ID lainnya di sini (pisahkan dengan koma)
     )
 

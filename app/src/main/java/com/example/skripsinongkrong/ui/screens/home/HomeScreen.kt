@@ -1,73 +1,134 @@
 package com.example.skripsinongkrong.ui.screens.home
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.skripsinongkrong.ui.theme.* // Import warna dari langkah 1
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    // Hilt akan otomatis menyuntikkan ViewModel ini saat layar dibuat
     viewModel: HomeViewModel = hiltViewModel()
 ) {
-    // Scaffold menyediakan struktur dasar layout Material Design
-    Scaffold { innerPadding ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "NongkrongDimana?",
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    )
+                },
+                actions = {
+                    // Ikon User di pojok kanan atas (sesuai desain)
+                    IconButton(onClick = { /* TODO: Profil? */ }) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Profil",
+                            tint = Color.White
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Terracotta // Warna Header
+                )
+            )
+        },
+        containerColor = CreamBackground // Warna Latar Belakang
+    ) { innerPadding ->
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .padding(innerPadding)
+                .padding(24.dp), // Margin kiri-kanan
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Center // Konten di tengah vertikal
         ) {
 
-            Text(
-                text = "Menu Utama",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
+            // --- KARTU 1: REVIEWNYA DULU (Input Crowdsourcing) ---
+            HomeMenuCard(
+                title = "Reviewnya Dulu",
+                icon = Icons.Default.Edit, // Ganti dengan ikon Pen jika punya aset SVG
+                onClick = { /* TODO: Navigasi ke ReviewListScreen */ }
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // --- TOMBOL FITUR UTAMA (Nanti diisi Card UI Anda) ---
-
-            Button(onClick = { /* Navigasi ke ReviewListScreen */ }) {
-                Text("Reviewnya Dulu")
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(onClick = { /* Navigasi ke SearchListScreen */ }) {
-                Text("Yuk Cari Tempat Nongkrong")
-            }
+            // --- KARTU 2: YUK CARI (Output SPK) ---
+            HomeMenuCard(
+                title = "Yuk Cari\nTempat\nNongkrong",
+                icon = Icons.Default.Map, // Ganti dengan ikon Peta/Search
+                onClick = { /* TODO: Navigasi ke SearchListScreen */ }
+            )
 
             Spacer(modifier = Modifier.height(64.dp))
 
-            // --- TOMBOL RAHASIA ADMIN (UNTUK "GET & CACHE") ---
-            // Tombol ini yang akan kita pakai untuk tes sekarang
+            // --- TOMBOL ADMIN (Tetap ada untuk fungsi Cache) ---
+            // Saya buat agak transparan/kecil biar tidak merusak desain utama
             Button(
-                onClick = {
-                    // PANGGIL FUNGSI DI VIEWMODEL
-                    viewModel.jalankanPengisianDatabase()
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red) // Merah biar kelihatan beda
+                onClick = { viewModel.jalankanPengisianDatabase() },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
+                modifier = Modifier.alpha(0.5f) // Setengah transparan
             ) {
-                Text("ADMIN: ISI DATABASE (GET & CACHE)")
+                Text("ADMIN: SYNC DATA", fontSize = 10.sp)
             }
+        }
+    }
+}
+
+// --- KOMPONEN KARTU MENU (Reusable) ---
+@Composable
+fun HomeMenuCard(
+    title: String,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        colors = CardDefaults.cardColors(containerColor = WhiteCard),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(120.dp) // Tinggi kartu disesuaikan
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Teks di Kiri
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Normal,
+                color = CharcoalText,
+                lineHeight = 28.sp // Spasi antar baris jika teks panjang
+            )
+
+            // Ikon Besar di Kanan
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Terracotta,
+                modifier = Modifier.size(48.dp) // Ukuran ikon besar
+            )
         }
     }
 }

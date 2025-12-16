@@ -74,4 +74,7 @@ dependencies {
     // Retrofit
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.converter.gson)
+
+    implementation(libs.androidx.material.icons.extended)
+    implementation(libs.androidx.hilt.navigation.compose)
 }
