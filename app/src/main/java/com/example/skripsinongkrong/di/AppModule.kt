@@ -20,7 +20,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideFirestore(): FirebaseFirestore {
-        return Firebase.firestore
+        return FirebaseFirestore.getInstance("skripsinongkrong")
     }
 
     @Provides

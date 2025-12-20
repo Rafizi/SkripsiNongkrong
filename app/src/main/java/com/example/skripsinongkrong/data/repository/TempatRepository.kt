@@ -17,12 +17,14 @@ class TempatRepository @Inject constructor(
     // Fungsi untuk Admin: Ambil data API & Cache ke Firestore
     suspend fun cachePlaceData(placeId: String, apiKey: String): Boolean {
         try {
+            Log.d("TempatRepo", "Mencoba request untuk ID: $placeId")
             // 1. Panggil Google Places API
             val response = api.getPlaceDetails(
                 placeId = placeId,
-                fields = "name,formatted_address,geometry", // <--- Tambahkan baris ini
+                fields = "name,formatted_address,geometry,rating,user_ratings_total,price_level,photos,opening_hours", // <--- Tambahkan baris ini
                 apiKey = apiKey
             )
+            Log.d("TempatRepo", "Respon diterima!")
 
             if (response.isSuccessful && response.body()?.status == "OK") {
                 val result = response.body()!!.result
@@ -31,17 +33,27 @@ class TempatRepository @Inject constructor(
                     // 2. Konversi data API ke Model Firebase kita
                     val lat = result.geometry?.location?.lat ?: 0.0
                     val lng = result.geometry?.location?.lng ?: 0.0
+                    // Ambil referensi foto pertama (jika ada)
+                    val photoRef = result.photos?.firstOrNull()?.photoReference ?: ""
 
+                    // Ambil status buka (jika ada)
+                    val isPlaceOpen = result.openingHours?.openNow
                     val dataBaru = TempatNongkrong(
                         id = placeId,
                         nama = result.name ?: "Tanpa Nama",
                         alamat = result.formattedAddress ?: "Alamat tidak tersedia",
-                        lokasi = GeoPoint(lat, lng)
+                        lokasi = GeoPoint(lat, lng),
+                        rating = result.rating ?: 0.0,
+                        totalReview = result.userRatingsTotal ?: 0,
+                        priceLevel = result.priceLevel ?: 0,
+
+                        photoReference = photoRef,
+                        isOpenNow = isPlaceOpen
                     )
 
                     // 3. Simpan ke Firestore (Merge = jangan timpa data rating yg sudah ada)
                     // Kita pakai 'placeId' sebagai ID Dokumen biar unik & gampang dicari
-                    db.collection("TempatNongkrong")
+                    db.collection("skripsinongkrong")
                         .document(placeId)
                         .set(dataBaru, SetOptions.merge())
                         .await()

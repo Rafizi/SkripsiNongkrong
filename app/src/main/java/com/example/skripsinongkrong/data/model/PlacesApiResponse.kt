@@ -18,7 +18,24 @@ data class PlaceResult(
     val formattedAddress: String?,
 
     @SerializedName("geometry")
-    val geometry: Geometry?
+    val geometry: Geometry?,
+
+    @SerializedName("rating")
+    val rating: Double?, // Kriteria TOPSIS: Benefit
+
+    @SerializedName("user_ratings_total")
+    val userRatingsTotal: Int?, // Kriteria TOPSIS: Benefit (Popularitas)
+
+    @SerializedName("price_level")
+    val priceLevel: Int?, // Kriteria TOPSIS: Cost (0-4)
+
+    // --- DATA VISUAL & OPERASIONAL ---
+
+    @SerializedName("photos")
+    val photos: List<Photo>?,
+
+    @SerializedName("opening_hours")
+    val openingHours: OpeningHours?
 )
 
 data class Geometry(
@@ -34,4 +51,12 @@ data class PlaceLocation(
     val lng: Double
 )
 
+data class Photo(
+    @SerializedName("photo_reference")
+    val photoReference: String?
+)
 
+data class OpeningHours(
+    @SerializedName("open_now")
+    val openNow: Boolean?
+)
