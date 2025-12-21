@@ -17,11 +17,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.skripsinongkrong.ui.theme.* // Import warna dari langkah 1
+import com.example.skripsinongkrong.ui.viewmodel.HomeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    viewModel: HomeViewModel = hiltViewModel()
+    viewModel: HomeViewModel = hiltViewModel(),
+    onNavigateToSearch: () -> Unit, // Tambahan: Kabel ke Halaman Cari
+    onNavigateToReview: () -> Unit  // Tambahan: Kabel ke Halaman Review
+
 ) {
     Scaffold(
         topBar = {
@@ -64,7 +68,7 @@ fun HomeScreen(
             HomeMenuCard(
                 title = "Reviewnya Dulu",
                 icon = Icons.Default.Edit, // Ganti dengan ikon Pen jika punya aset SVG
-                onClick = { /* TODO: Navigasi ke ReviewListScreen */ }
+                onClick = { onNavigateToReview() }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -73,7 +77,7 @@ fun HomeScreen(
             HomeMenuCard(
                 title = "Yuk Cari\nTempat\nNongkrong",
                 icon = Icons.Default.Map, // Ganti dengan ikon Peta/Search
-                onClick = { /* TODO: Navigasi ke SearchListScreen */ }
+                onClick = { onNavigateToSearch() }
             )
 
             Spacer(modifier = Modifier.height(64.dp))
@@ -92,43 +96,28 @@ fun HomeScreen(
 }
 
 // --- KOMPONEN KARTU MENU (Reusable) ---
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeMenuCard(
-    title: String,
-    icon: ImageVector,
-    onClick: () -> Unit
-) {
+fun HomeMenuCard(title: String, icon: ImageVector, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         colors = CardDefaults.cardColors(containerColor = WhiteCard),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(120.dp) // Tinggi kartu disesuaikan
+        modifier = Modifier.fillMaxWidth().height(120.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
+            modifier = Modifier.fillMaxSize().padding(24.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Teks di Kiri
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Normal,
                 color = CharcoalText,
-                lineHeight = 28.sp // Spasi antar baris jika teks panjang
+                lineHeight = 28.sp
             )
-
-            // Ikon Besar di Kanan
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Terracotta,
-                modifier = Modifier.size(48.dp) // Ukuran ikon besar
-            )
+            Icon(icon, null, tint = Terracotta, modifier = Modifier.size(48.dp))
         }
     }
 }

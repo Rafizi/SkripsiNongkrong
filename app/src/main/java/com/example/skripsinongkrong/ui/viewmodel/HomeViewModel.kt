@@ -1,4 +1,4 @@
-package com.example.skripsinongkrong.ui.screens.home // Sesuaikan package
+package com.example.skripsinongkrong.ui.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.ViewModel

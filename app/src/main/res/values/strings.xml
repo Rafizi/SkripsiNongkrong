@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Nongkrong?</string>
+    <string name="title_activity_detail_screen">DetailScreen</string>
 </resources>
