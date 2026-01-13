@@ -1,6 +1,7 @@
 package com.example.skripsinongkrong.data.repository
 
 import android.util.Log
+import com.example.skripsinongkrong.data.model.Review
 import com.example.skripsinongkrong.data.model.TempatNongkrong
 import com.example.skripsinongkrong.data.remote.PlaceApiService
 import com.google.firebase.firestore.FieldValue
@@ -17,8 +18,11 @@ class TempatRepository @Inject constructor(
     private val db: FirebaseFirestore,
     private val api: PlaceApiService
 ) {
+    private val COLLECTION_NAME = "skripsinongkrong"
+
+    // 1. Mengambil Semua Data
     fun getAllTempat(): Flow<List<TempatNongkrong>> = callbackFlow {
-        val subscription = db.collection("skripsinongkrong")
+        val subscription = db.collection(COLLECTION_NAME)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(error)
@@ -32,9 +36,9 @@ class TempatRepository @Inject constructor(
         awaitClose { subscription.remove() }
     }
 
-    // Mengambil DETAIL satu tempat berdasarkan ID
+    // 2. Mengambil Detail Satu Tempat
     fun getTempatDetail(placeId: String): Flow<TempatNongkrong?> = callbackFlow {
-        val subscription = db.collection("skripsinongkrong").document(placeId)
+        val subscription = db.collection(COLLECTION_NAME).document(placeId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(error)
@@ -50,30 +54,26 @@ class TempatRepository @Inject constructor(
         awaitClose { subscription.remove() }
     }
 
-    // Fungsi untuk Admin: Ambil data API & Cache ke Firestore
+    // 3. Fungsi Cache Data dari Google Places API
     suspend fun cachePlaceData(placeId: String, apiKey: String): Boolean {
         try {
             Log.d("TempatRepo", "Mencoba request untuk ID: $placeId")
-            // 1. Panggil Google Places API
+
             val response = api.getPlaceDetails(
                 placeId = placeId,
-                fields = "name,formatted_address,geometry,rating,user_ratings_total,price_level,photos,opening_hours", // <--- Tambahkan baris ini
+                fields = "name,formatted_address,geometry,rating,user_ratings_total,price_level,photos,opening_hours",
                 apiKey = apiKey
             )
-            Log.d("TempatRepo", "Respon diterima!")
 
             if (response.isSuccessful && response.body()?.status == "OK") {
                 val result = response.body()!!.result
 
                 if (result != null) {
-                    // 2. Konversi data API ke Model Firebase kita
                     val lat = result.geometry?.location?.lat ?: 0.0
                     val lng = result.geometry?.location?.lng ?: 0.0
-                    // Ambil referensi foto pertama (jika ada)
                     val photoRef = result.photos?.firstOrNull()?.photoReference ?: ""
-
-                    // Ambil status buka (jika ada)
                     val isPlaceOpen = result.openingHours?.openNow
+
                     val dataBaru = TempatNongkrong(
                         id = placeId,
                         nama = result.name ?: "Tanpa Nama",
@@ -82,14 +82,11 @@ class TempatRepository @Inject constructor(
                         rating = result.rating ?: 0.0,
                         totalReview = result.userRatingsTotal ?: 0,
                         priceLevel = result.priceLevel ?: 0,
-
                         photoReference = photoRef,
                         isOpenNow = isPlaceOpen
                     )
 
-                    // 3. Simpan ke Firestore (Merge = jangan timpa data rating yg sudah ada)
-                    // Kita pakai 'placeId' sebagai ID Dokumen biar unik & gampang dicari
-                    db.collection("skripsinongkrong")
+                    db.collection(COLLECTION_NAME)
                         .document(placeId)
                         .set(dataBaru, SetOptions.merge())
                         .await()
@@ -106,49 +103,88 @@ class TempatRepository @Inject constructor(
         return false
     }
 
-    fun kirimReview(
+    // 4. MENGAMBIL LIST REVIEW
+    fun getReviews(placeId: String): Flow<List<Review>> = callbackFlow {
+        val subscription = db.collection(COLLECTION_NAME).document(placeId)
+            .collection("reviews")
+            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(20)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    val reviewList = snapshot.toObjects(Review::class.java)
+                    trySend(reviewList)
+                }
+            }
+        awaitClose { subscription.remove() }
+    }
+
+    // 5. SUBMIT REVIEW (INI YANG TADI SALAH)
+    // Sekarang isinya adalah logika update Database, BUKAN logika ViewModel
+    suspend fun submitReview(
         placeId: String,
-        rasa: Int,
-        suasana: Int,
-        kebersihan: Int,
-        pelayanan: Int,
-        harga: Int,
+        userId: String,
+        userName: String,
+        rasa: Double,
+        suasana: Double,
+        kebersihan: Double,
+        pelayanan: Double,
+        ulasanText: String,
         adaColokan: Boolean,
         adaMushola: Boolean
-    ) {
-        val updates = hashMapOf<String, Any>(
-            // 1. Update Rasa
-            "skorRasaTotal" to FieldValue.increment(rasa.toLong()),
-            "jumlahPenilaiRasa" to FieldValue.increment(1),
+    ): Result<Boolean> {
+        return try {
+            // A. Simpan Detail Review ke Sub-Collection
+            val reviewData = hashMapOf(
+                "userId" to userId,
+                "userName" to userName,
+                "ratingRasa" to rasa,
+                "ratingSuasana" to suasana,
+                "ratingKebersihan" to kebersihan,
+                "ratingPelayanan" to pelayanan,
+                "text" to ulasanText,
+                "timestamp" to FieldValue.serverTimestamp()
+            )
 
-            // 2. Update Suasana
-            "skorSuasanaTotal" to FieldValue.increment(suasana.toLong()),
-            "jumlahPenilaiSuasana" to FieldValue.increment(1),
+            db.collection(COLLECTION_NAME).document(placeId)
+                .collection("reviews")
+                .add(reviewData)
+                .await()
 
-            // 3. Update Kebersihan (Field baru akan otomatis dibuat Firestore)
-            "skorKebersihanTotal" to FieldValue.increment(kebersihan.toLong()),
-            "jumlahPenilaiKebersihan" to FieldValue.increment(1),
+            // B. Update Agregat (Total Skor) di Dokumen Utama
+            val updates = hashMapOf<String, Any>(
+                "skorRasaTotal" to FieldValue.increment(rasa),
+                "jumlahPenilaiRasa" to FieldValue.increment(1),
+                "skorSuasanaTotal" to FieldValue.increment(suasana),
+                "jumlahPenilaiSuasana" to FieldValue.increment(1),
+                "skorKebersihanTotal" to FieldValue.increment(kebersihan),
+                "jumlahPenilaiKebersihan" to FieldValue.increment(1),
+                "skorPelayananTotal" to FieldValue.increment(pelayanan),
+                "jumlahPenilaiPelayanan" to FieldValue.increment(1),
+                "updateTerakhir" to System.currentTimeMillis()
+            )
 
-            // 4. Update Pelayanan
-            "skorPelayananTotal" to FieldValue.increment(pelayanan.toLong()),
-            "jumlahPenilaiPelayanan" to FieldValue.increment(1),
+            // Update Fasilitas jika ada vote
+            if (adaColokan) {
+                updates["jumlahVoteColokanBanyak"] = FieldValue.increment(1)
+            }
+            if (adaMushola) {
+                updates["jumlahVoteAdaMushola"] = FieldValue.increment(1)
+            }
 
-            // 5. Update Harga
-            "skorHargaTotal" to FieldValue.increment(harga.toLong()),
-            "jumlahPenilaiHarga" to FieldValue.increment(1)
-        )
+            // Eksekusi Update
+            db.collection(COLLECTION_NAME).document(placeId)
+                .update(updates)
+                .await()
 
-        // 6. Update Fasilitas (Hanya nambah jika User bilang "Ada")
-        if (adaColokan) {
-            updates["jumlahVoteColokanBanyak"] = FieldValue.increment(1)
+            Result.success(true)
+
+        } catch (e: Exception) {
+            Log.e("TempatRepo", "Gagal submit review: ${e.message}")
+            Result.failure(e)
         }
-        if (adaMushola) {
-            updates["jumlahVoteAdaMushola"] = FieldValue.increment(1)
-        }
-
-        // Eksekusi Update
-        db.collection("skripsinongkrong").document(placeId).update(updates)
-            .addOnSuccessListener { Log.d("Review", "Sukses kirim review!") }
-            .addOnFailureListener { e -> Log.e("Review", "Gagal kirim: ${e.message}") }
     }
 }
