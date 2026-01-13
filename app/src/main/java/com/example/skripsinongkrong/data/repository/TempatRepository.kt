@@ -146,7 +146,9 @@ class TempatRepository @Inject constructor(
                 "ratingKebersihan" to kebersihan,
                 "ratingPelayanan" to pelayanan,
                 "text" to ulasanText,
-                "timestamp" to FieldValue.serverTimestamp()
+                "timestamp" to FieldValue.serverTimestamp(),
+                "adaColokan" to adaColokan, // Simpan status colokan user ini
+                "adaMushola" to adaMushola  // Simpan status mushola user ini
             )
 
             db.collection(COLLECTION_NAME).document(placeId)

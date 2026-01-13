@@ -1,9 +1,7 @@
 package com.example.skripsinongkrong.ui.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.skripsinongkrong.BuildConfig
 import com.example.skripsinongkrong.data.model.Review
 import com.example.skripsinongkrong.data.model.TempatNongkrong
 import com.example.skripsinongkrong.data.repository.AuthRepository
@@ -50,21 +48,6 @@ class TempatViewModel @Inject constructor(
         viewModelScope.launch {
             repository.getReviews(placeId).collect { reviewList ->
                 _reviews.value = reviewList
-            }
-        }
-    }
-
-    // --- FUNGSI ADMIN SYNC ---
-    fun syncDataAdmin() {
-        viewModelScope.launch {
-            val targetPlaceId = "ChIJN1t_tDeuEmsRUsoyG83frY4"
-            val apiKey = BuildConfig.MAPS_API_KEY
-
-            Log.d("TempatViewModel", "Mencoba Sync...")
-            val success = repository.cachePlaceData(targetPlaceId, apiKey)
-
-            if (success) {
-                fetchTempatList()
             }
         }
     }

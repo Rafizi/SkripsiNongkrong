@@ -5,65 +5,79 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import com.example.skripsinongkrong.data.repository.AuthRepository
 import com.example.skripsinongkrong.ui.screens.detail.DetailScreen
 import com.example.skripsinongkrong.ui.screens.home.HomeScreen
+import com.example.skripsinongkrong.ui.screens.login.LoginScreen
 import com.example.skripsinongkrong.ui.screens.search.SearchScreen
 import com.example.skripsinongkrong.ui.theme.SkripsiNongkrongTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
-// 1. Definisikan Enum di luar class agar bisa diakses global
-enum class AppScreen { MENU, CARI, DETAIL }
+enum class AppScreen { LOGIN, MENU, LIST_REVIEW, LIST_CARI, DETAIL }
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var authRepository: AuthRepository // 1. Inject Auth
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             SkripsiNongkrongTheme {
-                // State untuk mengatur halaman mana yang tampil
-                var currentScreen by remember { mutableStateOf(AppScreen.MENU) }
+                // 2. Cek Status Login di Awal
+                val startScreen = if (authRepository.isUserLoggedIn()) AppScreen.MENU else AppScreen.LOGIN
+
+                var currentScreen by remember { mutableStateOf(startScreen) }
                 var selectedPlaceId by remember { mutableStateOf<String?>(null) }
 
-                Surface(modifier = Modifier.fillMaxSize()) {
+                // 3. State untuk membedakan Mode (Review Dulu vs Cari Tempat)
+                var isReviewMode by remember { mutableStateOf(false) }
 
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     when (currentScreen) {
-                        // 1. TAMPILAN MENU UTAMA
+                        AppScreen.LOGIN -> {
+                            LoginScreen(
+                                onLoginSuccess = { AppScreen.MENU }
+                            )
+                        }
+
                         AppScreen.MENU -> {
                             HomeScreen(
-                                onNavigateToSearch = { currentScreen = AppScreen.CARI },
-                                onNavigateToReview = { /* Nanti buat ReviewScreen */ }
-                            )
-                        }
-
-                        // 2. TAMPILAN LIST PENCARIAN
-                        AppScreen.CARI -> {
-                            SearchScreen(
-                                onNavigateToDetail = { placeId ->
-                                    selectedPlaceId = placeId
-                                    currentScreen = AppScreen.DETAIL
+                                onNavigateToReview = {
+                                    AppScreen.LIST_REVIEW
                                 },
-                                onBackClick = { currentScreen = AppScreen.MENU }
+                                onNavigateToSearch = {
+                                    AppScreen.LIST_CARI
+                                }
                             )
                         }
 
-                        // 3. TAMPILAN DETAIL (Contoh, nanti diganti DetailScreen asli)
+                        // Kita gunakan SearchScreen untuk kedua list (karena isinya sama: daftar tempat)
+                        AppScreen.LIST_REVIEW, AppScreen.LIST_CARI -> {
+                            SearchScreen(
+                                // Anda bisa tambahkan parameter title di SearchScreen jika mau judulnya dinamis
+                                onNavigateToDetail = { _ ->
+                                    AppScreen.DETAIL
+                                },
+                                onBackClick = { AppScreen.MENU }
+                            )
+                        }
+
                         AppScreen.DETAIL -> {
-                            // DetailScreen(...)
-                            // Untuk sementara tombol back saja
-                            // Cek agar tidak error jika ID null
                             if (selectedPlaceId != null) {
                                 DetailScreen(
                                     placeId = selectedPlaceId!!,
-                                    onBackClick = { currentScreen = AppScreen.CARI }
+                                    isReviewMode = isReviewMode, // 4. Kirim Mode ke Detail
+                                    onBackClick = {
+                                        if (isReviewMode) AppScreen.LIST_REVIEW else AppScreen.LIST_CARI
+                                    }
                                 )
                             }
                         }
