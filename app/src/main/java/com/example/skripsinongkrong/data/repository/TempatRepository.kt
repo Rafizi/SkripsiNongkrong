@@ -18,9 +18,13 @@ class TempatRepository @Inject constructor(
     private val db: FirebaseFirestore,
     private val api: PlaceApiService
 ) {
-    private val COLLECTION_NAME = "skripsinongkrong"
+    private val COLLECTION_NAME = "dbtempatnongkrong"
 
-    // 1. Mengambil Semua Data
+    // =====================================================================
+    // BAGIAN 1: READ DATA (Membaca Data dari Firestore)
+    // =====================================================================
+
+    // 1. Mengambil Semua Data Tempat
     fun getAllTempat(): Flow<List<TempatNongkrong>> = callbackFlow {
         val subscription = db.collection(COLLECTION_NAME)
             .addSnapshotListener { snapshot, error ->
@@ -54,7 +58,31 @@ class TempatRepository @Inject constructor(
         awaitClose { subscription.remove() }
     }
 
-    // 3. Fungsi Cache Data dari Google Places API
+    // 3. Mengambil List Review (Fitur Crowdsourcing)
+    fun getReviews(placeId: String): Flow<List<Review>> = callbackFlow {
+        val subscription = db.collection(COLLECTION_NAME).document(placeId)
+            .collection("reviews")
+            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(20)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    val reviewList = snapshot.toObjects(Review::class.java)
+                    trySend(reviewList)
+                }
+            }
+        awaitClose { subscription.remove() }
+    }
+
+    // =====================================================================
+    // BAGIAN 2: WRITE DATA (Update ke Firestore)
+    // =====================================================================
+
+    // 4. ADMIN SYNC: Cache Data dari Google Places API ke Firestore
+    // (Ini Logic KRUSIAL dari kode lama yang Anda minta dipertahankan)
     suspend fun cachePlaceData(placeId: String, apiKey: String): Boolean {
         try {
             Log.d("TempatRepo", "Mencoba request untuk ID: $placeId")
@@ -86,6 +114,7 @@ class TempatRepository @Inject constructor(
                         isOpenNow = isPlaceOpen
                     )
 
+                    // Simpan ke Firestore (SetOptions.merge() PENTING agar review lama tidak terhapus saat sync ulang)
                     db.collection(COLLECTION_NAME)
                         .document(placeId)
                         .set(dataBaru, SetOptions.merge())
@@ -103,27 +132,7 @@ class TempatRepository @Inject constructor(
         return false
     }
 
-    // 4. MENGAMBIL LIST REVIEW
-    fun getReviews(placeId: String): Flow<List<Review>> = callbackFlow {
-        val subscription = db.collection(COLLECTION_NAME).document(placeId)
-            .collection("reviews")
-            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
-            .limit(20)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    close(error)
-                    return@addSnapshotListener
-                }
-                if (snapshot != null) {
-                    val reviewList = snapshot.toObjects(Review::class.java)
-                    trySend(reviewList)
-                }
-            }
-        awaitClose { subscription.remove() }
-    }
-
-    // 5. SUBMIT REVIEW (INI YANG TADI SALAH)
-    // Sekarang isinya adalah logika update Database, BUKAN logika ViewModel
+    // USER: Kirim Review & Update Skor (INI YANG KAMU CARI)
     suspend fun submitReview(
         placeId: String,
         userId: String,
@@ -137,7 +146,7 @@ class TempatRepository @Inject constructor(
         adaMushola: Boolean
     ): Result<Boolean> {
         return try {
-            // A. Simpan Detail Review ke Sub-Collection
+            // A. Simpan Dokumen Review (Biar muncul di list)
             val reviewData = hashMapOf(
                 "userId" to userId,
                 "userName" to userName,
@@ -147,16 +156,17 @@ class TempatRepository @Inject constructor(
                 "ratingPelayanan" to pelayanan,
                 "text" to ulasanText,
                 "timestamp" to FieldValue.serverTimestamp(),
-                "adaColokan" to adaColokan, // Simpan status colokan user ini
-                "adaMushola" to adaMushola  // Simpan status mushola user ini
+                "adaColokan" to adaColokan,
+                "adaMushola" to adaMushola
             )
 
+            // Masukkan ke sub-collection "reviews"
             db.collection(COLLECTION_NAME).document(placeId)
                 .collection("reviews")
                 .add(reviewData)
                 .await()
 
-            // B. Update Agregat (Total Skor) di Dokumen Utama
+            // B. Update Agregat (Biar bintangnya berubah)
             val updates = hashMapOf<String, Any>(
                 "skorRasaTotal" to FieldValue.increment(rasa),
                 "jumlahPenilaiRasa" to FieldValue.increment(1),
@@ -166,10 +176,11 @@ class TempatRepository @Inject constructor(
                 "jumlahPenilaiKebersihan" to FieldValue.increment(1),
                 "skorPelayananTotal" to FieldValue.increment(pelayanan),
                 "jumlahPenilaiPelayanan" to FieldValue.increment(1),
-                "updateTerakhir" to System.currentTimeMillis()
+                // Update total review umum juga (opsional, biar kelihatan ramai)
+                "totalReview" to FieldValue.increment(1)
             )
 
-            // Update Fasilitas jika ada vote
+            // C. Update Vote Fasilitas (Hanya jika "Ada")
             if (adaColokan) {
                 updates["jumlahVoteColokanBanyak"] = FieldValue.increment(1)
             }
@@ -177,15 +188,16 @@ class TempatRepository @Inject constructor(
                 updates["jumlahVoteAdaMushola"] = FieldValue.increment(1)
             }
 
-            // Eksekusi Update
+            // Eksekusi Update ke Dokumen Induk
             db.collection(COLLECTION_NAME).document(placeId)
                 .update(updates)
                 .await()
 
+            Log.d("TempatRepo", "Review sukses terkirim ke Firebase!")
             Result.success(true)
 
         } catch (e: Exception) {
-            Log.e("TempatRepo", "Gagal submit review: ${e.message}")
+            Log.e("TempatRepo", "Gagal kirim review: ${e.message}")
             Result.failure(e)
         }
     }

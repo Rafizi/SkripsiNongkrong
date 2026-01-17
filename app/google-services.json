@@ -12,7 +12,20 @@
           "package_name": "com.example.skripsinongkrong"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "743727922665-t8d9mnonri839pfoloimsdl1hmnt5jg4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.skripsinongkrong",
+            "certificate_hash": "27190658b5f33eeb1983dc0f52778bd5bdaf851b"
+          }
+        },
+        {
+          "client_id": "743727922665-4rds8cg62p69ssadgibm68nfarg26c4k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDTdRz0_4jAVhDCehKa7BI4E5AKeVGAYXY"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "743727922665-4rds8cg62p69ssadgibm68nfarg26c4k.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

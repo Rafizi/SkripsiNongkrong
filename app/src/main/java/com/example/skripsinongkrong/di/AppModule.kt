@@ -2,6 +2,7 @@ package com.example.skripsinongkrong.di
 
 import com.example.skripsinongkrong.data.remote.PlaceApiService
 import com.example.skripsinongkrong.data.repository.TempatRepository
+import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.Module
@@ -18,7 +19,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideFirebaseFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()
+    fun provideFirebaseFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance(FirebaseApp.getInstance(), "dbtempatnongkrong")
 
     @Provides
     @Singleton

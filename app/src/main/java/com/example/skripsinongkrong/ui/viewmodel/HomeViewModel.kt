@@ -17,39 +17,47 @@ class HomeViewModel @Inject constructor(
     private val repository: TempatRepository
 ) : ViewModel() {
 
-    // ⚠️ PENTING: Masukkan API Key Google Places Anda di sini
+    // API KEY
     private val API_KEY = "AIzaSyD9Sca1UbjLrAKb5oTe3Ps_UfAJ7Gqi5yA"
 
-    // ⚠️ PENTING: Masukkan Place ID tempat-tempat di Jakarta Timur yang sudah Anda cari
+    // LIST ID (Pastikan ID ini valid semua)
     private val targetPlaceIds = listOf(
         "ChIJUR0-gtHtaS4R-2URuESqHT4",
         "ChIJmQWdy63taS4Rwvp3D16wFrI",
         "ChIJ691qE_LtaS4RdQLOAf_rNT0",
         "ChIJbWywWH3taS4R-m07fPfkA58",
         "ChIJ7-3zQnrtaS4R8WzySJquDcw",
-        "ChIJJRsgMADtaS4RBoKbsBc_PTc",
-        // ... Tambahkan ID lainnya di sini (pisahkan dengan koma)
+        "ChIJJRsgMADtaS4RBoKbsBc_PTc"
     )
 
     fun jalankanPengisianDatabase() {
         viewModelScope.launch {
             Log.d("Admin", "=== MULAI PROSES CACHE (PARALEL) ===")
 
-            // Pindah ke Thread IO (Background) biar tidak macet
+            // 1. Pindah ke Jalur IO (Internet) agar tidak membebani HP
             withContext(Dispatchers.IO) {
-                // Buat daftar pekerjaan (Jobs) secara serentak
+
+                // 2. Siapkan semua request secara bersamaan (Async)
                 val jobs = targetPlaceIds.map { placeId ->
                     async {
-                        Log.d("Admin", "🚀 Menembak request: $placeId")
-                        repository.cachePlaceData(placeId, API_KEY)
+                        Log.d("Admin", "🚀 Mengirim Request: $placeId")
+                        // Panggil Repository
+                        val hasil = repository.cachePlaceData(placeId, API_KEY)
+
+                        // Log Hasil per Item
+                        if (hasil) {
+                            Log.d("Admin", "✅ SUKSES: $placeId")
+                        } else {
+                            Log.e("Admin", "❌ GAGAL: $placeId (Cek Log TempatRepo)")
+                        }
                     }
                 }
 
-                // Tunggu semua pekerjaan selesai
+                // 3. Tunggu sampai SEMUANYA selesai
                 jobs.awaitAll()
             }
 
-            Log.d("Admin", "=== SEMUA PROSES SELESAI ===")
+            Log.d("Admin", "=== SELESAI SEMUA PROSES ===")
         }
     }
 }
