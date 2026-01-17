@@ -1,5 +1,6 @@
 package com.example.skripsinongkrong.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.skripsinongkrong.data.model.Review
@@ -27,6 +28,12 @@ class TempatViewModel @Inject constructor(
     private val _reviews = MutableStateFlow<List<Review>>(emptyList())
     val reviews: StateFlow<List<Review>> = _reviews
 
+    private val _submitStatus = MutableStateFlow<Boolean?>(null)
+    val submitStatus: StateFlow<Boolean?> = _submitStatus
+
+    // 2. STATE LOADING: Biar tombol tidak diklik 2x
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading
     init {
         fetchTempatList()
     }
@@ -68,6 +75,21 @@ class TempatViewModel @Inject constructor(
             val userName = authRepository.getUserName()
             val finalName = if (userName.isNotEmpty()) userName else "Pengunjung"
 
+            val result = repository.submitReview(
+                placeId, userId, finalName, rasa, suasana,
+                kebersihan, pelayanan, ulasanText, adaColokan, adaMushola
+            )
+            _isLoading.value = false // Selesai Loading
+
+            if (result.isSuccess) {
+                _submitStatus.value = true // Memicu Dialog Muncul
+                fetchTempatList() // Refresh data list
+                loadDetail(placeId) // Refresh data detail
+            } else {
+                _submitStatus.value = false // (Opsional) Tampilkan pesan error
+                Log.e("ViewModel", "Gagal: ${result.exceptionOrNull()}")
+            }
+
             // GANTI DARI kirimReview JADI submitReview
             repository.submitReview(
                 placeId = placeId,
@@ -85,5 +107,11 @@ class TempatViewModel @Inject constructor(
             fetchTempatList()
             loadDetail(placeId)
         }
+
+
+    }
+    // 4. FUNGSI RESET (Dipanggil setelah dialog ditutup)
+    fun resetSubmitStatus() {
+        _submitStatus.value = null
     }
 }

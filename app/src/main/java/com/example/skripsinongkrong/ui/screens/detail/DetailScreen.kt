@@ -53,6 +53,8 @@ fun DetailScreen(
 
     val reviews by viewModel.reviews.collectAsState()
     val tempat by viewModel.selectedTempat.collectAsState()
+    val submitStatus by viewModel.submitStatus.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     // State Input Review
     var rateRasa by remember { mutableIntStateOf(0) }
@@ -63,6 +65,36 @@ fun DetailScreen(
     var adaColokan by remember { mutableStateOf(false) }
     var adaMushola by remember { mutableStateOf(false) }
 
+
+    // 2. LOGIKA DIALOG SUKSES
+    if (submitStatus == true) {
+        AlertDialog(
+            onDismissRequest = {
+                // Opsional: Kalau user klik luar, mau tutup atau diam?
+                // Kita biarkan kosong agar user WAJIB klik OK
+            },
+            icon = {
+                Icon(
+                    Icons.Outlined.CheckCircle,
+                    null,
+                    tint = Color(0xFF4CAF50)
+                )
+            }, // Ikon Centang Hijau
+            title = { Text("Review Terkirim!") },
+            text = { Text("Terima kasih sudah berbagi pengalamanmu.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.resetSubmitStatus() // Reset status biar dialog hilang
+                        onBackClick() // BARU KEMBALI KE MENU
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Terracotta)
+                ) {
+                    Text("Mantap")
+                }
+            }
+        )
+    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -75,7 +107,11 @@ fun DetailScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Color.White)
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Kembali",
+                            tint = Color.White
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Terracotta)
@@ -114,7 +150,12 @@ fun DetailScreen(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Star, null, tint = Color(0xFFFFB300), modifier = Modifier.size(18.dp))
+                            Icon(
+                                Icons.Default.Star,
+                                null,
+                                tint = Color(0xFFFFB300),
+                                modifier = Modifier.size(18.dp)
+                            )
                             Spacer(Modifier.width(4.dp))
                             Text(text = "${tempat!!.rating}", fontWeight = FontWeight.Bold)
                         }
@@ -122,7 +163,11 @@ fun DetailScreen(
                 }
 
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(tempat!!.nama, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        tempat!!.nama,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                     Text(tempat!!.alamat, color = Color.Gray)
 
                     Spacer(Modifier.height(24.dp))
@@ -131,20 +176,34 @@ fun DetailScreen(
 
                     if (isReviewMode) {
                         // === MODE 1: FORM INPUT REVIEW ===
-                        Text("Form Penilaian", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Form Penilaian",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
                         Spacer(Modifier.height(16.dp))
 
                         Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 StarRatingInput("Rasa", rateRasa) { rateRasa = it }
                                 StarRatingInput("Suasana", rateSuasana) { rateSuasana = it }
-                                StarRatingInput("Kebersihan", rateKebersihan) { rateKebersihan = it }
+                                StarRatingInput("Kebersihan", rateKebersihan) {
+                                    rateKebersihan = it
+                                }
                                 StarRatingInput("Pelayanan", ratePelayanan) { ratePelayanan = it }
 
                                 Spacer(Modifier.height(12.dp))
                                 Text("Fasilitas:", fontWeight = FontWeight.Bold)
-                                FacilitySwitchItem("Ada Colokan?", Icons.Outlined.ElectricalServices, adaColokan) { adaColokan = it }
-                                FacilitySwitchItem("Ada Mushola?", Icons.Outlined.Mosque, adaMushola) { adaMushola = it }
+                                FacilitySwitchItem(
+                                    "Ada Colokan?",
+                                    Icons.Outlined.ElectricalServices,
+                                    adaColokan
+                                ) { adaColokan = it }
+                                FacilitySwitchItem(
+                                    "Ada Mushola?",
+                                    Icons.Outlined.Mosque,
+                                    adaMushola
+                                ) { adaMushola = it }
 
                                 Spacer(Modifier.height(16.dp))
                                 OutlinedTextField(
@@ -159,43 +218,79 @@ fun DetailScreen(
                         Spacer(Modifier.height(24.dp))
                         Button(
                             onClick = {
+                                // PANGGIL VIEWMODEL SAJA (Jangan panggil onBackClick di sini)
                                 viewModel.submitReview(
                                     placeId, rateRasa.toDouble(), rateSuasana.toDouble(),
                                     rateKebersihan.toDouble(), ratePelayanan.toDouble(),
                                     ulasanText, adaColokan, adaMushola
                                 )
-                                onBackClick()
                             },
-                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            enabled = !isLoading, // Matikan tombol saat loading
                             colors = ButtonDefaults.buttonColors(containerColor = Terracotta)
                         ) {
-                            Text("Kirim Review", fontWeight = FontWeight.Bold)
+                            if (isLoading) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            } else {
+                                Text("Kirim Review", fontWeight = FontWeight.Bold)
+                            }
                         }
-
                     } else {
                         // === MODE 2: LIHAT REVIEW (DETAIL PER POINT) ===
-                        Text("Ulasan Pengunjung", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Ulasan Pengunjung",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
                         Spacer(Modifier.height(16.dp))
 
                         if (reviews.isEmpty()) {
-                            Box(modifier = Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
-                                Text("Belum ada review. Yuk jadi yang pertama!", color = Color.Gray)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Belum ada review. Yuk jadi yang pertama!",
+                                    color = Color.Gray
+                                )
                             }
                         } else {
                             reviews.forEach { review ->
                                 Card(
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 12.dp),
                                     colors = CardDefaults.cardColors(containerColor = Color.White),
                                     elevation = CardDefaults.cardElevation(2.dp)
                                 ) {
                                     Column(modifier = Modifier.padding(16.dp)) {
                                         // Header User
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Person, null, modifier = Modifier.size(24.dp), tint = Color.Gray)
+                                            Icon(
+                                                Icons.Default.Person,
+                                                null,
+                                                modifier = Modifier.size(24.dp),
+                                                tint = Color.Gray
+                                            )
                                             Spacer(Modifier.width(8.dp))
                                             Column {
-                                                Text(review.userName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
-                                                Text(review.getFormattedDate(), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                                Text(
+                                                    review.userName,
+                                                    fontWeight = FontWeight.Bold,
+                                                    style = MaterialTheme.typography.bodyLarge
+                                                )
+                                                Text(
+                                                    review.getFormattedDate(),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = Color.Gray
+                                                )
                                             }
                                         }
 
@@ -203,9 +298,15 @@ fun DetailScreen(
 
                                         // Teks Komentar
                                         if (review.text.isNotEmpty()) {
-                                            Text(review.text, style = MaterialTheme.typography.bodyMedium)
+                                            Text(
+                                                review.text,
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
                                             Spacer(Modifier.height(12.dp))
-                                            HorizontalDivider(thickness = 0.5.dp, color = Color.LightGray)
+                                            HorizontalDivider(
+                                                thickness = 0.5.dp,
+                                                color = Color.LightGray
+                                            )
                                             Spacer(Modifier.height(12.dp))
                                         }
 
@@ -214,13 +315,22 @@ fun DetailScreen(
                                             // Kolom Kiri
                                             Column(modifier = Modifier.weight(1f)) {
                                                 SmallRatingDisplay("Rasa", review.ratingRasa)
-                                                SmallRatingDisplay("Suasana", review.ratingSuasana)
+                                                SmallRatingDisplay(
+                                                    "Suasana",
+                                                    review.ratingSuasana
+                                                )
                                             }
                                             Spacer(Modifier.width(16.dp))
                                             // Kolom Kanan
                                             Column(modifier = Modifier.weight(1f)) {
-                                                SmallRatingDisplay("Kebersihan", review.ratingKebersihan)
-                                                SmallRatingDisplay("Pelayanan", review.ratingPelayanan)
+                                                SmallRatingDisplay(
+                                                    "Kebersihan",
+                                                    review.ratingKebersihan
+                                                )
+                                                SmallRatingDisplay(
+                                                    "Pelayanan",
+                                                    review.ratingPelayanan
+                                                )
                                             }
                                         }
 
@@ -257,15 +367,26 @@ fun DetailScreen(
 @Composable
 fun SmallRatingDisplay(label: String, score: Double) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Star, null, tint = Color(0xFFFFB300), modifier = Modifier.size(12.dp))
+            Icon(
+                Icons.Default.Star,
+                null,
+                tint = Color(0xFFFFB300),
+                modifier = Modifier.size(12.dp)
+            )
             Spacer(Modifier.width(2.dp))
-            Text(String.format("%.0f", score), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+            Text(
+                String.format("%.0f", score),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -282,18 +403,35 @@ fun ReviewBadge(text: String) {
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Outlined.CheckCircle, null, tint = Color(0xFF388E3C), modifier = Modifier.size(14.dp)) // Ikon Centang
+            Icon(
+                Icons.Outlined.CheckCircle,
+                null,
+                tint = Color(0xFF388E3C),
+                modifier = Modifier.size(14.dp)
+            ) // Ikon Centang
             Spacer(Modifier.width(4.dp))
-            Text(text, fontSize = 11.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.Medium)
+            Text(
+                text,
+                fontSize = 11.sp,
+                color = Color(0xFF2E7D32),
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
 
 // Input Switch untuk Form
 @Composable
-fun FacilitySwitchItem(label: String, icon: ImageVector, isChecked: Boolean, onCheckChanged: (Boolean) -> Unit) {
+fun FacilitySwitchItem(
+    label: String,
+    icon: ImageVector,
+    isChecked: Boolean,
+    onCheckChanged: (Boolean) -> Unit
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -313,7 +451,10 @@ fun FacilitySwitchItem(label: String, icon: ImageVector, isChecked: Boolean, onC
         Switch(
             checked = isChecked,
             onCheckedChange = onCheckChanged,
-            colors = SwitchDefaults.colors(checkedThumbColor = Terracotta, checkedTrackColor = Terracotta.copy(alpha = 0.3f))
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Terracotta,
+                checkedTrackColor = Terracotta.copy(alpha = 0.3f)
+            )
         )
     }
 }
@@ -321,20 +462,31 @@ fun FacilitySwitchItem(label: String, icon: ImageVector, isChecked: Boolean, onC
 // Input Bintang untuk Form
 @Composable
 fun StarRatingInput(label: String, rating: Int, onRatingChanged: (Int) -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium, color = Color.DarkGray)
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.DarkGray
+            )
             Row {
                 for (i in 1..5) {
                     Icon(
                         imageVector = if (i <= rating) Icons.Default.Star else Icons.Outlined.StarBorder,
                         contentDescription = "$i Star",
                         tint = if (i <= rating) Color(0xFFFFB300) else Color.LightGray,
-                        modifier = Modifier.size(28.dp).clickable { onRatingChanged(i) }.padding(2.dp)
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clickable { onRatingChanged(i) }
+                            .padding(2.dp)
                     )
                 }
             }
