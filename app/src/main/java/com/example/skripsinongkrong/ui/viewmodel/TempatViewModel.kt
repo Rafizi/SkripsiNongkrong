@@ -1,8 +1,11 @@
 package com.example.skripsinongkrong.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.skripsinongkrong.data.model.Review
 import com.example.skripsinongkrong.data.model.TempatNongkrong
+import com.example.skripsinongkrong.data.repository.AuthRepository
 import com.example.skripsinongkrong.data.repository.TempatRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,46 +15,103 @@ import javax.inject.Inject
 
 @HiltViewModel
 class TempatViewModel @Inject constructor(
-    private val repository: TempatRepository
+    private val repository: TempatRepository,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
-    // 1. State untuk menampung List Tempat (Yuk Cari!)
     private val _tempatList = MutableStateFlow<List<TempatNongkrong>>(emptyList())
     val tempatList: StateFlow<List<TempatNongkrong>> = _tempatList
 
-    // 2. State untuk menampung Detail Tempat yang dipilih
     private val _selectedTempat = MutableStateFlow<TempatNongkrong?>(null)
     val selectedTempat: StateFlow<TempatNongkrong?> = _selectedTempat
 
+    private val _reviews = MutableStateFlow<List<Review>>(emptyList())
+    val reviews: StateFlow<List<Review>> = _reviews
+
+    private val _submitStatus = MutableStateFlow<Boolean?>(null)
+    val submitStatus: StateFlow<Boolean?> = _submitStatus
+
+    // 2. STATE LOADING: Biar tombol tidak diklik 2x
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading
     init {
-        // Otomatis ambil data saat ViewModel ini dibuat pertama kali
         fetchTempatList()
     }
 
-    // Fungsi ambil semua data
     private fun fetchTempatList() {
         viewModelScope.launch {
             repository.getAllTempat().collect { daftarTempat ->
-                _tempatList.value = daftarTempat
+                _tempatList.value = daftarTempat.sortedByDescending { it.rating } // Sort by Rating Google
             }
         }
     }
 
-    // Fungsi ambil detail satu tempat
     fun loadDetail(placeId: String) {
         viewModelScope.launch {
-            repository.getTempatDetail(placeId).collect {   detail ->
+            repository.getTempatDetail(placeId).collect { detail ->
                 _selectedTempat.value = detail
             }
         }
+        viewModelScope.launch {
+            repository.getReviews(placeId).collect { reviewList ->
+                _reviews.value = reviewList
+            }
+        }
     }
+
+    // --- FUNGSI SUBMIT REVIEW ---
     fun submitReview(
         placeId: String,
-        rasa: Int, suasana: Int, kebersihan: Int, pelayanan: Int, harga: Int,
-        colokan: Boolean, mushola: Boolean
+        rasa: Double,
+        suasana: Double,
+        kebersihan: Double,
+        pelayanan: Double,
+        ulasanText: String,
+        adaColokan: Boolean,
+        adaMushola: Boolean
     ) {
         viewModelScope.launch {
-            repository.kirimReview(placeId, rasa, suasana, kebersihan, pelayanan, harga, colokan, mushola)
+            val userId = authRepository.getUserId()
+            val userName = authRepository.getUserName()
+            val finalName = if (userName.isNotEmpty()) userName else "Pengunjung"
+
+            val result = repository.submitReview(
+                placeId, userId, finalName, rasa, suasana,
+                kebersihan, pelayanan, ulasanText, adaColokan, adaMushola
+            )
+            _isLoading.value = false // Selesai Loading
+
+            if (result.isSuccess) {
+                _submitStatus.value = true // Memicu Dialog Muncul
+                fetchTempatList() // Refresh data list
+                loadDetail(placeId) // Refresh data detail
+            } else {
+                _submitStatus.value = false // (Opsional) Tampilkan pesan error
+                Log.e("ViewModel", "Gagal: ${result.exceptionOrNull()}")
+            }
+
+            // GANTI DARI kirimReview JADI submitReview
+            repository.submitReview(
+                placeId = placeId,
+                userId = userId,
+                userName = finalName,
+                rasa = rasa,
+                suasana = suasana,
+                kebersihan = kebersihan,
+                pelayanan = pelayanan,
+                ulasanText = ulasanText,
+                adaColokan = adaColokan,
+                adaMushola = adaMushola
+            )
+
+            fetchTempatList()
+            loadDetail(placeId)
         }
+
+
+    }
+    // 4. FUNGSI RESET (Dipanggil setelah dialog ditutup)
+    fun resetSubmitStatus() {
+        _submitStatus.value = null
     }
 }

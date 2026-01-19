@@ -1,10 +1,10 @@
-package com.example.skripsinongkrong.di // Sesuaikan package Anda
+package com.example.skripsinongkrong.di
 
 import com.example.skripsinongkrong.data.remote.PlaceApiService
 import com.example.skripsinongkrong.data.repository.TempatRepository
-import com.google.firebase.Firebase
+import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.firestore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -19,23 +19,26 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideFirestore(): FirebaseFirestore {
-        return FirebaseFirestore.getInstance("skripsinongkrong")
-    }
+    fun provideFirebaseFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance(FirebaseApp.getInstance(), "dbtempatnongkrong")
 
     @Provides
     @Singleton
-    fun provideRetrofit(): Retrofit =
-        Retrofit.Builder()
-            .baseUrl("https://maps.googleapis.com/") // Base URL Google Places
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
+    fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
+
+    // --- KEMBALIKAN RETROFIT ---
+    @Provides
+    @Singleton
+    fun provideRetrofit(): Retrofit = Retrofit.Builder()
+        .baseUrl("https://maps.googleapis.com/")
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
 
     @Provides
     @Singleton
     fun providePlacesApiService(retrofit: Retrofit): PlaceApiService =
         retrofit.create(PlaceApiService::class.java)
 
+    // --- INJECT API SERVICE KE REPOSITORY ---
     @Provides
     @Singleton
     fun provideTempatRepository(db: FirebaseFirestore, api: PlaceApiService): TempatRepository {

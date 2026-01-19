@@ -1,4 +1,5 @@
 import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -51,7 +52,7 @@ android {
     }
 }
 
-    dependencies {
+dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -74,6 +75,9 @@ android {
     // Firebase & Firestore
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)
+
+    implementation(libs.firebase.auth)
+    implementation(libs.play.services.auth)
 
     // Hilt
 
