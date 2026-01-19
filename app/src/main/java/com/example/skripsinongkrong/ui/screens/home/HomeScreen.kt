@@ -1,186 +1,157 @@
 package com.example.skripsinongkrong.ui.screens.home
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Map
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.skripsinongkrong.ui.theme.CharcoalText
+import com.example.skripsinongkrong.ui.components.PlaceListItem
 import com.example.skripsinongkrong.ui.theme.Terracotta
-import com.example.skripsinongkrong.ui.theme.WhiteCard
-import com.example.skripsinongkrong.ui.viewmodel.AuthViewModel
-import com.example.skripsinongkrong.ui.viewmodel.HomeViewModel
+import com.example.skripsinongkrong.ui.viewmodel.TempatViewModel
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberPermissionState
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun HomeScreen(
-    viewModel: HomeViewModel = hiltViewModel(),
-    onNavigateToSearch: () -> Unit, // Tambahan: Kabel ke Halaman Cari
-    onLogoutSuccess: () -> Unit,
-    onNavigateToReview: () -> Unit,  // Tambahan: Kabel ke Halaman Review
-    authViewModel: AuthViewModel = hiltViewModel()
-
+    onNavigateToDetail: (String) -> Unit,
+    // Gunakan TempatViewModel karena logika filter ada di sana
+    viewModel: TempatViewModel = hiltViewModel()
 ) {
-    val userEmail by authViewModel.userEmail.collectAsState()
-    val adminEmail = "naufal.rafizi@gmail.com" // Sesuaikan email kamu
+    val places by viewModel.tempatList.collectAsState()
+    val locationPermission = rememberPermissionState(android.Manifest.permission.ACCESS_FINE_LOCATION)
 
-    // State untuk menampilkan Dialog Konfirmasi Logout
-    var showLogoutDialog by remember { mutableStateOf(false) }
+    // State untuk Filter yang sedang aktif
+    var selectedCategory by remember { mutableStateOf("Semua") }
 
-    // --- LOGIC: TAMPILKAN DIALOG ---
-    if (showLogoutDialog) {
-        AlertDialog(
-            onDismissRequest = { showLogoutDialog = false },
-            title = { Text("Konfirmasi Logout") },
-            text = { Text("Apakah Anda yakin ingin keluar dari aplikasi?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showLogoutDialog = false
-                        authViewModel.logout() // 1. Hapus Sesi Firebase
-                        onLogoutSuccess()      // 2. Pindah Layar ke Login
-                    }
-                ) {
-                    Text("Ya, Keluar", color = Terracotta, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLogoutDialog = false }) {
-                    Text("Batal", color = Color.Gray)
-                }
-            }
-        )
-    }
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Halo, Nongkrongers!", color = Color.White, fontWeight = FontWeight.Bold)
-                        Text("Mau kemana hari ini?", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodySmall)
-                    }
-                },
-                // --- TOMBOL LOGOUT DI KANAN ATAS ---
-                actions = {
-                    IconButton(onClick = { showLogoutDialog = true }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = "Logout",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Terracotta)
-            )
+    // Efek saat pertama kali dibuka: Cek Lokasi
+    LaunchedEffect(Unit) {
+        if (!locationPermission.status.isGranted) {
+            locationPermission.launchPermissionRequest()
+        } else {
+            viewModel.hitungJarakLokasiUser()
         }
-    ) { innerPadding ->
+    }
 
+    // Daftar Kategori Filter
+    val categories = listOf("Semua", "Terdekat", "Colokan", "Mushola", "Wifi", "Rasa", "Suasana")
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF9F9F9))
+    ) {
+        // 1. HEADER (Lokasi & Search)
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(24.dp), // Margin kiri-kanan
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center // Konten di tengah vertikal
+                .fillMaxWidth()
+                .background(Color.White)
+                .padding(16.dp)
         ) {
-
-            // --- KARTU 1: REVIEWNYA DULU (Input Crowdsourcing) ---
-            HomeMenuCard(
-                title = "Reviewnya Dulu",
-                icon = Icons.Default.Edit, // Ganti dengan ikon Pen jika punya aset SVG
-                onClick = { onNavigateToReview() }
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // --- KARTU 2: YUK CARI (Output SPK) ---
-            HomeMenuCard(
-                title = "Cari Tempat",
-                icon = Icons.Default.Map, // Ganti dengan ikon Peta/Search
-                onClick = { onNavigateToSearch() }
-            )
-
-            Spacer(modifier = Modifier.height(64.dp))
-
-            // --- TOMBOL ADMIN (Tetap ada untuk fungsi Cache) ---
-            // Saya buat agak transparan/kecil biar tidak merusak desain utama
-            if (userEmail == adminEmail) {
-                Button(
-                    onClick = { viewModel.jalankanPengisianDatabase() },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Text("ADMIN ONLY: SYNC DATA")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.LocationOn, contentDescription = null, tint = Terracotta)
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text("Lokasi Kamu", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text("Jakarta, Indonesia", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Tambahan: Jarak aman di bawah biar enak scrollnya
-            Spacer(modifier = Modifier.height(50.dp))
+            // Search Bar Dummy
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFF0F0F0))
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Cari tempat nongkrong...", color = Color.Gray)
+                }
+            }
         }
-    }
-}
 
-// --- KOMPONEN KARTU MENU (Reusable) ---
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun HomeMenuCard(title: String, icon: ImageVector, onClick: () -> Unit) {
-    Card(
-        onClick = onClick,
-        colors = CardDefaults.cardColors(containerColor = WhiteCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        modifier = Modifier.fillMaxWidth().height(120.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+        // 2. FILTER CHIPS (Scroll Samping)
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Normal,
-                color = CharcoalText,
-                lineHeight = 28.sp
-            )
-            Icon(icon, null, tint = Terracotta, modifier = Modifier.size(48.dp))
+            items(categories) { category ->
+                val isSelected = selectedCategory == category
+                FilterChip(
+                    selected = isSelected,
+                    onClick = {
+                        // Logika Toggle: Jika diklik lagi, kembali ke "Semua"
+                        if (isSelected && category != "Semua") {
+                            selectedCategory = "Semua"
+                            viewModel.filterByKriteria("Semua")
+                        } else {
+                            selectedCategory = category
+                            viewModel.filterByKriteria(category)
+                        }
+                    },
+                    label = { Text(category) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Terracotta,
+                        selectedLabelColor = Color.White,
+                        containerColor = Color.White,
+                        labelColor = Color.Black
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        borderColor = if (isSelected) Terracotta else Color.LightGray,
+                        enabled = true, selected = isSelected
+                    )
+                )
+            }
+        }
+
+        // 3. LIST TEMPAT
+        if (places.isEmpty()) {
+            // Tampilan jika Kosong (Empty State)
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Belum ada tempat yang cocok.", color = Color.Gray)
+                    if (selectedCategory != "Semua") {
+                        TextButton(onClick = {
+                            selectedCategory = "Semua"
+                            viewModel.filterByKriteria("Semua")
+                        }) {
+                            Text("Reset Filter", color = Terracotta)
+                        }
+                    }
+                }
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(bottom = 80.dp) // Padding bawah biar gak ketutup navbar
+            ) {
+                items(places) { place ->
+                    PlaceListItem(
+                        tempat = place,
+                        onItemClick = { onNavigateToDetail(place.id) }
+                    )
+                }
+            }
         }
     }
 }
