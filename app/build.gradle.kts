@@ -79,6 +79,11 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.play.services.auth)
 
+    //Maps
+    implementation(libs.play.services.location)
+
+    implementation(libs.accompanist.permissions)
+
     // Hilt
 
     implementation(libs.hilt.android)

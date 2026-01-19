@@ -143,10 +143,11 @@ class TempatRepository @Inject constructor(
         pelayanan: Double,
         ulasanText: String,
         adaColokan: Boolean,
-        adaMushola: Boolean
+        adaMushola: Boolean,
+        adaWifi: Boolean // <-- PARAMETER BARU
     ): Result<Boolean> {
         return try {
-            // A. Simpan Dokumen Review (Biar muncul di list)
+            // A. Simpan Dokumen Review
             val reviewData = hashMapOf(
                 "userId" to userId,
                 "userName" to userName,
@@ -157,16 +158,16 @@ class TempatRepository @Inject constructor(
                 "text" to ulasanText,
                 "timestamp" to FieldValue.serverTimestamp(),
                 "adaColokan" to adaColokan,
-                "adaMushola" to adaMushola
+                "adaMushola" to adaMushola,
+                "adaWifi" to adaWifi // <-- SIMPAN KE DB
             )
 
-            // Masukkan ke sub-collection "reviews"
             db.collection(COLLECTION_NAME).document(placeId)
                 .collection("reviews")
                 .add(reviewData)
                 .await()
 
-            // B. Update Agregat (Biar bintangnya berubah)
+            // B. Update Agregat Skor & Vote
             val updates = hashMapOf<String, Any>(
                 "skorRasaTotal" to FieldValue.increment(rasa),
                 "jumlahPenilaiRasa" to FieldValue.increment(1),
@@ -176,24 +177,19 @@ class TempatRepository @Inject constructor(
                 "jumlahPenilaiKebersihan" to FieldValue.increment(1),
                 "skorPelayananTotal" to FieldValue.increment(pelayanan),
                 "jumlahPenilaiPelayanan" to FieldValue.increment(1),
-                // Update total review umum juga (opsional, biar kelihatan ramai)
                 "totalReview" to FieldValue.increment(1)
             )
 
-            // C. Update Vote Fasilitas (Hanya jika "Ada")
-            if (adaColokan) {
-                updates["jumlahVoteColokanBanyak"] = FieldValue.increment(1)
-            }
-            if (adaMushola) {
-                updates["jumlahVoteAdaMushola"] = FieldValue.increment(1)
-            }
+            // C. Update Vote Fasilitas
+            if (adaColokan) updates["jumlahVoteColokanBanyak"] = FieldValue.increment(1)
+            if (adaMushola) updates["jumlahVoteAdaMushola"] = FieldValue.increment(1)
+            if (adaWifi) updates["jumlahVoteAdaWifi"] = FieldValue.increment(1) // <-- UPDATE COUNTER
 
-            // Eksekusi Update ke Dokumen Induk
             db.collection(COLLECTION_NAME).document(placeId)
                 .update(updates)
                 .await()
 
-            Log.d("TempatRepo", "Review sukses terkirim ke Firebase!")
+            Log.d("TempatRepo", "Review sukses terkirim!")
             Result.success(true)
 
         } catch (e: Exception) {

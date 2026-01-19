@@ -19,12 +19,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.skripsinongkrong.BuildConfig
 import com.example.skripsinongkrong.data.model.TempatNongkrong
+import com.example.skripsinongkrong.ui.theme.Terracotta
 
 fun buildPhotoUrl(photoReference: String, maxWidth: Int = 400): String {
     // Jika kosong atau link web biasa, kembalikan aslinya
@@ -77,6 +79,15 @@ fun PlaceListItem(
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
                 )
+                if (tempat.jarakDariUserKm > 0) {
+                    Text(
+                        text = String.format("📍 %.1f km dari sini", tempat.jarakDariUserKm),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Terracotta
+                    )
+                } else {
+                    Text("Menghitung jarak...", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Coffee Shop", // Nanti bisa diganti data dinamis

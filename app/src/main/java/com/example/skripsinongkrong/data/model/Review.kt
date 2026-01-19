@@ -1,5 +1,3 @@
-@file:Suppress("DEPRECATION")
-
 package com.example.skripsinongkrong.data.model
 
 import com.google.firebase.Timestamp
@@ -7,10 +5,10 @@ import com.google.firebase.Timestamp
 data class Review(
     val id: String = "",
     val userId: String = "",
-    val userName: String = "Pengunjung", // <--- PENTING: Nama User
+    val userName: String = "Pengunjung",
     val text: String = "",
 
-    // Rating Spesifik (Skripsi Crowdsourcing)
+    // Rating
     val ratingRasa: Double = 0.0,
     val ratingSuasana: Double = 0.0,
     val ratingKebersihan: Double = 0.0,
@@ -18,10 +16,11 @@ data class Review(
 
     val timestamp: Timestamp? = null,
 
-    val adaColokan: Boolean = false, // Tambahkan ini
-    val adaMushola: Boolean = false  // Tambahkan ini
+    // Fasilitas (LENGKAP: Colokan, Mushola, WiFi)
+    val adaColokan: Boolean = false,
+    val adaMushola: Boolean = false,
+    val adaWifi: Boolean = false
 ) {
-    // Helper untuk format tanggal (Opsional)
     fun getFormattedDate(): String {
         if (timestamp == null) return ""
         val date = timestamp.toDate()
