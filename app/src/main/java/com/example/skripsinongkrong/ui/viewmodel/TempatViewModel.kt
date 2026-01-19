@@ -30,15 +30,15 @@ class TempatViewModel @Inject constructor(
 ) : ViewModel() {
 
     // --- KONFIGURASI ADMIN (DATA DARI CODE LAMA KAMU) ---
-    private val API_KEY = "AIzaSyD9Sca1UbjLrAKb5oTe3Ps_UfAJ7Gqi5yA" // API Key Kamu
+    private val API_KEY = "AIzaSyDTdRz0_4jAVhDCehKa7BI4E5AKeVGAYXY" // API Key Kamu
 
     // List ID Tempat yang ingin kamu masukkan ke database
     private val targetPlaceIds = listOf(
         "ChIJUR0-gtHtaS4R-2URuESqHT4",
         "ChIJmQWdy63taS4Rwvp3D16wFrI",
-        "ChIJ691qE_LtaS4RdQLOAf_rNT0",
         "ChIJbWywWH3taS4R-m07fPfkA58",
         "ChIJ7-3zQnrtaS4R8WzySJquDcw",
+        "ChIJ51b3ZsPzaS4RQ8a3XfHBo-A",
         "ChIJJRsgMADtaS4RBoKbsBc_PTc"
     )
     // ----------------------------------------------------
@@ -68,12 +68,42 @@ class TempatViewModel @Inject constructor(
     private fun fetchTempatList() {
         viewModelScope.launch {
             repository.getAllTempat().collect { daftarTempat ->
+
+                Log.e("DEBUG_DATA", "=== MULAI CEK DATA DARI FIRESTORE ===")
+                if (daftarTempat.isEmpty()) {
+                    Log.e("DEBUG_DATA", "Data Firestore KOSONG / Tidak Terbaca!")
+                }
+
+                daftarTempat.forEach { tempat ->
+                    // Kita cek spesifik tempat yang bermasalah (contoh ID Kopi Nako)
+                    // Atau print semua biar jelas
+                    Log.d("DEBUG_DATA", """
+                        ------------------------------------------------
+                        NAMA       : ${tempat.nama}
+                        ID         : ${tempat.id}
+                        DATA MENTAH DITERIMA:
+                        - Colokan  : ${tempat.jumlahVoteColokanBanyak}
+                        - Mushola  : ${tempat.jumlahVoteAdaMushola}
+                        - Wifi     : ${tempat.jumlahVoteAdaWifi} (Jika 0, berarti db kosong/mapping salah)
+                        ------------------------------------------------
+                    """.trimIndent())
+                }
+                // --- KODE DEBUGGING SELESAI ---
+
                 originalList = daftarTempat
                 if (lastKnownLocation != null) {
                     updateListDenganJarak(lastKnownLocation!!)
                 } else {
                     _tempatList.value = daftarTempat.sortedByDescending { it.rating }
                 }
+
+                originalList = daftarTempat
+                if (lastKnownLocation != null) {
+                    updateListDenganJarak(lastKnownLocation!!)
+                } else {
+                    _tempatList.value = daftarTempat.sortedByDescending { it.rating }
+                }
+                _tempatList.value = daftarTempat // Update UI
             }
         }
     }
@@ -124,6 +154,39 @@ class TempatViewModel @Inject constructor(
     }
 
     // --- FITUR FILTER ---
+    fun filterData(isColokan: Boolean, isMushola: Boolean, isWifi: Boolean) {
+        Log.d("FilterDebug", "Filtering: Colokan=$isColokan, Mushola=$isMushola, Wifi=$isWifi")
+
+        // 1. Selalu mulai dari data ASLI (originalList) agar filter tidak makin habis
+        var result = originalList
+
+        // 2. Filter Colokan (Jika dicentang, cari yg > 0)
+        if (isColokan) {
+            result = result.filter { it.jumlahVoteColokanBanyak > 0 }
+        }
+
+        // 3. Filter Mushola
+        if (isMushola) {
+            result = result.filter { it.jumlahVoteAdaMushola > 0 }
+        }
+
+        // 4. Filter WiFi
+        if (isWifi) {
+            result = result.filter { it.jumlahVoteAdaWifi > 0 }
+        }
+
+        // 5. Urutkan lagi (misal berdasarkan jarak kalau ada lokasi, atau rating)
+        result = if (lastKnownLocation != null) {
+            result.sortedBy { it.jarakDariUserKm }
+        } else {
+            result.sortedByDescending { it.rating }
+        }
+
+        Log.d("FilterDebug", "Hasil Filter: ${result.size} tempat ditemukan")
+
+        // 6. Update UI
+        _tempatList.value = result
+    }
     fun filterByKriteria(kriteria: String) {
         val sortedList = when (kriteria) {
             "Terdekat" -> originalList.sortedBy { it.jarakDariUserKm }

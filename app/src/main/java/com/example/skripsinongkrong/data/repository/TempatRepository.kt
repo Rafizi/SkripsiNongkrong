@@ -81,12 +81,12 @@ class TempatRepository @Inject constructor(
     // BAGIAN 2: WRITE DATA (Update ke Firestore)
     // =====================================================================
 
-    // 4. ADMIN SYNC: Cache Data dari Google Places API ke Firestore
-    // (Ini Logic KRUSIAL dari kode lama yang Anda minta dipertahankan)
+    // --- 4. ADMIN SYNC (SMART UPDATE: TIDAK MERESET VOTE USER) ---
     suspend fun cachePlaceData(placeId: String, apiKey: String): Boolean {
-        try {
-            Log.d("TempatRepo", "Mencoba request untuk ID: $placeId")
+        return try {
+            Log.d("TempatRepo", "Mencoba request Sync untuk ID: $placeId")
 
+            // 1. Panggil API Google (Sesuai ApiService kamu)
             val response = api.getPlaceDetails(
                 placeId = placeId,
                 fields = "name,formatted_address,geometry,rating,user_ratings_total,price_level,photos,opening_hours",
@@ -97,42 +97,86 @@ class TempatRepository @Inject constructor(
                 val result = response.body()!!.result
 
                 if (result != null) {
+                    val docRef = db.collection(COLLECTION_NAME).document(placeId)
+
+                    // Cek Data Lama di Firestore
+                    val snapshot = docRef.get().await()
+
+                    // Siapkan Data Dasar dari Google (Ini data yang BOLEH di-update kapan saja)
                     val lat = result.geometry?.location?.lat ?: 0.0
                     val lng = result.geometry?.location?.lng ?: 0.0
-                    val photoRef = result.photos?.firstOrNull()?.photoReference ?: ""
-                    val isPlaceOpen = result.openingHours?.openNow
 
-                    val dataBaru = TempatNongkrong(
-                        id = placeId,
-                        nama = result.name ?: "Tanpa Nama",
-                        alamat = result.formattedAddress ?: "Alamat tidak tersedia",
-                        lokasi = GeoPoint(lat, lng),
-                        rating = result.rating ?: 0.0,
-                        totalReview = result.userRatingsTotal ?: 0,
-                        priceLevel = result.priceLevel ?: 0,
-                        photoReference = photoRef,
-                        isOpenNow = isPlaceOpen
+                    val googleMapData = hashMapOf<String, Any?>(
+                        "nama" to (result.name ?: "Tanpa Nama"),
+                        "alamat" to (result.formattedAddress ?: "Alamat tidak tersedia"),
+                        "lokasi" to GeoPoint(lat, lng),
+                        "priceLevel" to (result.priceLevel ?: 0),
+                        "photoReference" to (result.photos?.firstOrNull()?.photoReference ?: ""),
+                        "isOpenNow" to (result.openingHours?.openNow)
+                        // Catatan: Rating Google ("rating") sebaiknya tidak menimpa rating aplikasi ("rating")
+                        // jika kita ingin rating murni dari user aplikasi.
+                        // Tapi kita bisa simpan "ratingGoogle" terpisah jika mau.
                     )
 
-                    // Simpan ke Firestore (SetOptions.merge() PENTING agar review lama tidak terhapus saat sync ulang)
-                    db.collection(COLLECTION_NAME)
-                        .document(placeId)
-                        .set(dataBaru, SetOptions.merge())
-                        .await()
+                    if (snapshot.exists()) {
+                        // Cek apakah field fasilitas ada? Jika tidak, inisialisasi ke 0
+                        val currentData = snapshot.data
+                        if (currentData != null) {
+                            if (!currentData.containsKey("jumlahVoteAdaWifi")) {
+                                googleMapData["jumlahVoteAdaWifi"] = 0
+                                Log.w("TempatRepo", "Field Wifi hilang, menambahkan default 0.")
+                            }
+                            if (!currentData.containsKey("jumlahVoteColokanBanyak")) {
+                                googleMapData["jumlahVoteColokanBanyak"] = 0
+                            }
+                            if (!currentData.containsKey("jumlahVoteAdaMushola")) {
+                                googleMapData["jumlahVoteAdaMushola"] = 0
+                            }
+                        }
 
-                    Log.d("TempatRepo", "Berhasil cache: ${result.name}")
+                        docRef.update(googleMapData).await()
+                        Log.d("TempatRepo", "UPDATE Metadata Berhasil")
+                    } else {
+                        // === KASUS 2: DATA BARU (INISIALISASI) ===
+                        // Karena belum ada, kita wajib set semua counter ke 0
+
+                        googleMapData["id"] = placeId
+                        // Gunakan rating Google sebagai start awal (opsional, bisa juga 0.0)
+                        googleMapData["rating"] = result.rating ?: 0.0
+                        googleMapData["totalReview"] = 0 // Total review aplikasi mulai dari 0
+
+                        // Inisialisasi Vote User
+                        googleMapData["jumlahVoteColokanBanyak"] = 0
+                        googleMapData["jumlahVoteAdaMushola"] = 0
+                        googleMapData["jumlahVoteAdaWifi"] = 0
+
+                        // Inisialisasi Skor
+                        googleMapData["skorRasaTotal"] = 0.0
+                        googleMapData["skorSuasanaTotal"] = 0.0
+                        googleMapData["skorKebersihanTotal"] = 0.0
+                        googleMapData["skorPelayananTotal"] = 0.0
+
+                        // Inisialisasi Rata-rata
+                        googleMapData["rataRasa"] = 0.0
+                        googleMapData["rataSuasana"] = 0.0
+                        googleMapData["rataKebersihan"] = 0.0
+                        googleMapData["rataPelayanan"] = 0.0
+
+                        docRef.set(googleMapData).await()
+                        Log.d("TempatRepo", "SMART SYNC: Data Baru Dibuat: ${result.name}")
+                    }
                     return true
                 }
             } else {
                 Log.e("TempatRepo", "Gagal API: ${response.errorBody()?.string()} atau Status: ${response.body()?.status}")
             }
+            false
         } catch (e: Exception) {
             Log.e("TempatRepo", "Error Exception: ${e.message}")
+            false
         }
-        return false
     }
 
-    // USER: Kirim Review & Update Skor (INI YANG KAMU CARI)
     suspend fun submitReview(
         placeId: String,
         userId: String,
@@ -144,10 +188,12 @@ class TempatRepository @Inject constructor(
         ulasanText: String,
         adaColokan: Boolean,
         adaMushola: Boolean,
-        adaWifi: Boolean // <-- PARAMETER BARU
+        adaWifi: Boolean
     ): Result<Boolean> {
         return try {
-            // A. Simpan Dokumen Review
+            val placeRef = db.collection(COLLECTION_NAME).document(placeId)
+
+            // A. Simpan Dokumen Review di Subcollection
             val reviewData = hashMapOf(
                 "userId" to userId,
                 "userName" to userName,
@@ -159,37 +205,74 @@ class TempatRepository @Inject constructor(
                 "timestamp" to FieldValue.serverTimestamp(),
                 "adaColokan" to adaColokan,
                 "adaMushola" to adaMushola,
-                "adaWifi" to adaWifi // <-- SIMPAN KE DB
+                "adaWifi" to adaWifi
             )
 
-            db.collection(COLLECTION_NAME).document(placeId)
-                .collection("reviews")
-                .add(reviewData)
-                .await()
+            // Simpan Review dulu
+            placeRef.collection("reviews").add(reviewData).await()
 
-            // B. Update Agregat Skor & Vote
-            val updates = hashMapOf<String, Any>(
-                "skorRasaTotal" to FieldValue.increment(rasa),
-                "jumlahPenilaiRasa" to FieldValue.increment(1),
-                "skorSuasanaTotal" to FieldValue.increment(suasana),
-                "jumlahPenilaiSuasana" to FieldValue.increment(1),
-                "skorKebersihanTotal" to FieldValue.increment(kebersihan),
-                "jumlahPenilaiKebersihan" to FieldValue.increment(1),
-                "skorPelayananTotal" to FieldValue.increment(pelayanan),
-                "jumlahPenilaiPelayanan" to FieldValue.increment(1),
-                "totalReview" to FieldValue.increment(1)
-            )
+            // B. UPDATE DATA INDUK DENGAN TRANSACTION (Supaya Aman & Akurat)
+            db.runTransaction { transaction ->
+                val snapshot = transaction.get(placeRef)
 
-            // C. Update Vote Fasilitas
-            if (adaColokan) updates["jumlahVoteColokanBanyak"] = FieldValue.increment(1)
-            if (adaMushola) updates["jumlahVoteAdaMushola"] = FieldValue.increment(1)
-            if (adaWifi) updates["jumlahVoteAdaWifi"] = FieldValue.increment(1) // <-- UPDATE COUNTER
+                // 1. Ambil Data Lama (Handle jika null/0)
+                val totalReviewLama = snapshot.getLong("totalReview") ?: 0
+                val skorRasaLama = snapshot.getDouble("skorRasaTotal") ?: 0.0
+                val skorSuasanaLama = snapshot.getDouble("skorSuasanaTotal") ?: 0.0
+                val skorKebersihanLama = snapshot.getDouble("skorKebersihanTotal") ?: 0.0
+                val skorPelayananLama = snapshot.getDouble("skorPelayananTotal") ?: 0.0
 
-            db.collection(COLLECTION_NAME).document(placeId)
-                .update(updates)
-                .await()
+                // 2. Hitung Data Baru
+                val totalReviewBaru = totalReviewLama + 1
+                val skorRasaBaru = skorRasaLama + rasa
+                val skorSuasanaBaru = skorSuasanaLama + suasana
+                val skorKebersihanBaru = skorKebersihanLama + kebersihan
+                val skorPelayananBaru = skorPelayananLama + pelayanan
 
-            Log.d("TempatRepo", "Review sukses terkirim!")
+                // 3. HITUNG RATA-RATA BARU (PENTING BUAT UI!)
+                val rataRasaBaru = skorRasaBaru / totalReviewBaru
+                val rataSuasanaBaru = skorSuasanaBaru / totalReviewBaru
+                val rataKebersihanBaru = skorKebersihanBaru / totalReviewBaru
+                val rataPelayananBaru = skorPelayananBaru / totalReviewBaru
+
+                // Rata-rata total (Bintang Utama)
+                val ratingUtamaBaru = (rataRasaBaru + rataSuasanaBaru + rataKebersihanBaru + rataPelayananBaru) / 4.0
+
+                // 4. Siapkan Data Update
+                val updates = mutableMapOf<String, Any>(
+                    "totalReview" to totalReviewBaru,
+                    "skorRasaTotal" to skorRasaBaru,
+                    "skorSuasanaTotal" to skorSuasanaBaru,
+                    "skorKebersihanTotal" to skorKebersihanBaru,
+                    "skorPelayananTotal" to skorPelayananBaru,
+
+                    // Update Field Rata-Rata (Agar UI langsung berubah)
+                    "rataRasa" to rataRasaBaru,
+                    "rataSuasana" to rataSuasanaBaru,
+                    "rataKebersihan" to rataKebersihanBaru,
+                    "rataPelayanan" to rataPelayananBaru,
+                    "rating" to ratingUtamaBaru // Update bintang utama
+                )
+
+                // 5. Update Counter Fasilitas (Increment Manual biar aman)
+                if (adaColokan) {
+                    val lama = snapshot.getLong("jumlahVoteColokanBanyak") ?: 0
+                    updates["jumlahVoteColokanBanyak"] = lama + 1
+                }
+                if (adaMushola) {
+                    val lama = snapshot.getLong("jumlahVoteAdaMushola") ?: 0
+                    updates["jumlahVoteAdaMushola"] = lama + 1
+                }
+                if (adaWifi) {
+                    val lama = snapshot.getLong("jumlahVoteAdaWifi") ?: 0
+                    updates["jumlahVoteAdaWifi"] = lama + 1
+                }
+
+                // Eksekusi Update
+                transaction.update(placeRef, updates)
+            }.await()
+
+            Log.d("TempatRepo", "Review & Rata-rata Sukses Diupdate!")
             Result.success(true)
 
         } catch (e: Exception) {

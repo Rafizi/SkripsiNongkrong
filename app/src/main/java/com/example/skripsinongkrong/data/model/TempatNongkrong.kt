@@ -26,12 +26,17 @@ data class TempatNongkrong(
     val rataKebersihan: Double = 0.0,
     val rataPelayanan: Double = 0.0,
 
-    // Data Vote Fasilitas (Sekarang LENGKAP)
-    val jumlahVoteColokanBanyak: Int = 0,
-    val jumlahVoteAdaMushola: Int = 0,
-    val jumlahVoteAdaWifi: Int = 0, // <-- BARU
+    @get:PropertyName("jumlahVoteColokanBanyak")
+    @set:PropertyName("jumlahVoteColokanBanyak")
+    var jumlahVoteColokanBanyak: Int = 0,
 
-    val fasilitas: Map<String, Boolean>? = null,
+    @get:PropertyName("jumlahVoteAdaMushola")
+    @set:PropertyName("jumlahVoteAdaMushola")
+    var jumlahVoteAdaMushola: Int = 0,
+
+    @get:PropertyName("jumlahVoteAdaWifi")
+    @set:PropertyName("jumlahVoteAdaWifi")
+    var jumlahVoteAdaWifi: Int = 0,
 
     val updateTerakhir: Long = System.currentTimeMillis()
 ) {

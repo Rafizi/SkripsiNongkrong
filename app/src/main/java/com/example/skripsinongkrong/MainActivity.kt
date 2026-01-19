@@ -37,17 +37,30 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
 @Composable
 fun MainApp(
     authViewModel: AuthViewModel = hiltViewModel(),
     tempatViewModel: TempatViewModel = hiltViewModel()
 ) {
+    // State Navigasi Manual
     var currentScreen by remember { mutableStateOf(AppScreen.MENU) }
+
+    // State Login dari ViewModel
     val isLoggedIn by authViewModel.isUserLoggedIn.collectAsState(initial = false)
 
     // STATE PENTING: Simpan ID tempat yang dipilih
     var selectedPlaceId by remember { mutableStateOf("") }
+
+    // --- [FIX] CCTV LOGOUT OTOMATIS ---
+    // Logika: Setiap kali 'isLoggedIn' berubah, cek kondisinya.
+    // Jika user TIDAK login (false) DAN sedang di layar Profile,
+    // MAKA paksa pindah layar ke LOGIN.
+    LaunchedEffect(isLoggedIn) {
+        if (!isLoggedIn && currentScreen == AppScreen.PROFILE) {
+            currentScreen = AppScreen.LOGIN
+        }
+    }
+    // ----------------------------------
 
     Scaffold(
         bottomBar = {
@@ -69,6 +82,7 @@ fun MainApp(
                         label = { Text(if (isLoggedIn) "Profil" else "Login") },
                         selected = currentScreen == AppScreen.LOGIN || currentScreen == AppScreen.PROFILE,
                         onClick = {
+                            // Logika Bottom Bar
                             currentScreen = if (isLoggedIn) AppScreen.PROFILE else AppScreen.LOGIN
                         }
                     )
@@ -79,32 +93,35 @@ fun MainApp(
         Box(modifier = Modifier.padding(innerPadding)) {
             when (currentScreen) {
                 AppScreen.LOGIN -> LoginScreen(
-                    onLoginSuccess = { currentScreen = AppScreen.MENU }
+                    onLoginSuccess = {
+                        // Jika login sukses, pindah ke Menu/Home
+                        currentScreen = AppScreen.MENU
+                    }
                 )
 
                 AppScreen.MENU -> HomeScreen(
                     onNavigateToDetail = { placeId ->
-                        // 1. Simpan ID ke variabel state
                         selectedPlaceId = placeId
-                        // 2. Panggil ViewModel (opsional, karena di DetailScreen juga dipanggil)
                         tempatViewModel.loadDetail(placeId)
-                        // 3. Pindah Layar
                         currentScreen = AppScreen.DETAIL
                     }
                 )
 
                 AppScreen.PROFILE -> ProfileScreen(
                     onBackClick = { currentScreen = AppScreen.MENU },
-                    onLogoutSuccess = { currentScreen = AppScreen.LOGIN }
+                    onLogoutSuccess = { currentScreen = AppScreen.LOGIN },
+
+                    // --- [SOLUSI] OPER VIEWMODEL UTAMA KE SINI ---
+                    // Supaya tombol logout di ProfileScreen mengubah state
+                    // yang sedang dipantau oleh MainApp!
+                    viewModel = authViewModel
                 )
 
                 AppScreen.DETAIL -> {
                     BackHandler { currentScreen = AppScreen.MENU }
-
-                    // FIX ERROR: Kirim parameter yang dibutuhkan
                     DetailScreen(
-                        placeId = selectedPlaceId,   // Kirim ID
-                        isLoggedIn = isLoggedIn,     // Kirim Status Login
+                        placeId = selectedPlaceId,
+                        isLoggedIn = isLoggedIn,
                         onBackClick = { currentScreen = AppScreen.MENU }
                     )
                 }

@@ -59,7 +59,7 @@ object AppModule {
     @Singleton
     fun provideGoogleSignInOptions(@ApplicationContext context: Context): GoogleSignInOptions {
         return GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(context.getString(R.string.default_web_client_id)) // Pastikan string ini ada
+            .requestIdToken(context.getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
     }
@@ -75,12 +75,12 @@ object AppModule {
     // ------------------------
 
     // Update Provider AuthRepository untuk menerima GoogleSignInClient
-    @Provides
+  /*  @Provides
     @Singleton
     fun provideAuthRepository(
         auth: FirebaseAuth,
         googleSignInClient: GoogleSignInClient // <-- Inject ini
     ): AuthRepository {
         return AuthRepository(auth, googleSignInClient)
-    }
+    }*/
 }
